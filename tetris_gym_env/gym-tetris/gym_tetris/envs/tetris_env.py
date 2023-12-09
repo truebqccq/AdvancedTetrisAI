@@ -4,13 +4,33 @@ from gym.utils import seeding
 import numpy as np
 
 from gym_tetris.envs.tetris_ctl import controller
+from gym_tetris.envs.env_test import *
 
 class TetrisEnv(gym.Env):
-
-    def __init__(self):
+    metadata = {
+            "render_modes": ["human", "rgb_array", "none"],
+            "render_fps": 30,
+    }
+    
+    def __init__(self, render_mode = "human"):
+        print('Build Tetris v2.0')
         self.action_space = spaces.Discrete(7)
         self.observation_space = spaces.Box(low=0, high=2, shape=(1, 29, 10), dtype=np.float32)
         self.controller = controller()
+        self.render_mode = render_mode
+
+        pg.init()
+        if render_mode == 'none':
+            return
+        self.display = TetrisDisplay()
+        self.screen = pg.Surface((self.display.screen_width, self.display.screen_length))
+        self.display.screen_init(self.screen)
+        if render_mode == "human":
+            pg.display.init()
+            pg.display.set_caption("tetris display")
+            self.window = pg.display.set_mode((self.display.screen_width, self.display.screen_length))
+            pg.display.update()
+        
 
     """
     action space
@@ -28,29 +48,27 @@ class TetrisEnv(gym.Env):
         fire = 0
         pos = [0, 0]
         if action == 0:
-            self.controller.move_x(1)
+            reward += self.controller.move_x(1)
         elif action == 1:
-            self.controller.move_x(-1)
+            reward += self.controller.move_x(-1)
         elif action == 2:
-            self.controller.rotate(1)
+            reward += self.controller.rotate(1)
         elif action == 3:
-            self.controller.rotate(-1)
+            reward += self.controller.rotate(-1)
         elif action == 4 or action == 5:
             if action == 4:
-                landed, reward, column_list, perfect_landed, pos = self.controller.soft_drop()
+                landed, reward, column_list, landing_bonus, pos = self.controller.soft_drop()
             elif action == 5:
-                landed, reward, column_list, perfect_landed, pos = self.controller.hard_drop()
+                landed, reward, column_list, landing_bonus, pos = self.controller.hard_drop()
             fire = reward
             if reward > 0:
-                reward += 3
+                reward += 2
             if landed:
-                if perfect_landed:
-                    reward += 1
-                
+                reward += landing_bonus                
                 height = self.controller.highest()
                 reward -= height * 0.01
         elif action == 6:
-            self.controller.hold()
+            reward += self.controller.hold()
         
         obs = np.array(self.controller.get_state(), dtype=np.float32)
 
@@ -64,10 +82,33 @@ class TetrisEnv(gym.Env):
         obs = np.array(self.controller.get_state(), dtype=np.float32)
         return obs
 
-    def render(self, mode='human'):
-        pass
+    def render(self):
+        if self.render_mode == 'none':
+            return
+        if self.render_mode is None:
+            gym.logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. gym("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+        self.display.screen_update(self.screen, self)
+        if self.render_mode == "human":
+            self.window.blit(self.screen, self.screen.get_rect())
+            pg.display.update()
+        elif self.render_mode == "rgb_array":
+            return np.transpose(
+                np.array(pg.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
+            )
+        
+
+
     def close(self):
-        pass
+        if self.screen is not None:
+            import pygame
+
+            pygame.display.quit()
+            pygame.quit()
 
     def add_fire(self, fire):
         self.controller.add_fire(fire)

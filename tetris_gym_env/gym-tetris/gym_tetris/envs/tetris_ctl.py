@@ -155,6 +155,8 @@ class controller:
         self.gameover = False
         self.next_minos_init()
         self.dropping_mino = controller.minos[self.next_minos.pop(0)]
+        self.turns_without_drop = 0
+        # self.previous_move = 0
         
         
     def reset(self):
@@ -175,15 +177,28 @@ class controller:
     
     # move dropping mino an offset specified by x, right(x>0) or left(x<0)
     def move_x(self, x): 
+        reward = 0.01*(1 - self.turns_without_drop)
+        # Punish doing moves that undoes the previous move
+        # if self.previous_move == (3-x)//2:
+            # reward -= 0.05
+        self.turns_without_drop += 1
+        # self.previous_move = (3+x)//2 # 1 = left, 2 = right
         x_position = self.dropping_mino.current_pos[0] + x
         y_position = self.dropping_mino.current_pos[1]
         if self.check_collision(self.dropping_mino.current_rot, [x_position, y_position]) == False: # won't collide
             self.dropping_mino.current_pos[0] += x
             self.last_move_is_rotate = False
+        return reward
 
     # rotate dropping mino after calculating its final position 
     # calculation is done using Super Rotation System used in tetris world rule
     def rotate(self, angle_offset):
+        reward = 0.01*(1 - self.turns_without_drop)
+        # Punish doing moves that undoes the previous move
+        # if self.previous_move == 2 + (3-angle_offset)//2:
+        #     reward -= 0.05
+        self.turns_without_drop += 1
+        # self.previous_move = 2 + (3+angle_offset)//2   
         srs_offset = self.dropping_mino.srs_xy(angle_offset)
         for xy_offset in srs_offset: # xy_offset is [x, y]
             x_position = self.dropping_mino.current_pos[0] + xy_offset[0]
@@ -194,7 +209,8 @@ class controller:
                 self.dropping_mino.current_pos = [x_position, y_position]
                 self.last_move_is_rotate = True
                 break
-
+        return reward
+    
     # check if the dropping mino would collide to either of wall, floor, or stacks, when it is located xy with angle of rot
     # xy is absolute position, and each x and y value can have negative values when the dropping mino is near the left wall 
     # rot is absolute angle:
@@ -221,6 +237,8 @@ class controller:
 
     # returns False, 0 if it drops, retuns True, score if it lands
     def soft_drop(self):
+        self.turns_without_drop = 0
+        # self.previous_move = 0
         x_position = self.dropping_mino.current_pos[0]
         y_position = self.dropping_mino.current_pos[1] + 1
         if self.check_collision(self.dropping_mino.current_rot, [x_position, y_position]) == False: # won't collide
@@ -229,10 +247,31 @@ class controller:
             return False, 0, [], False, [0, 0]
         else:
             score, x_list, perfect_landed, pos = self.land()
+            bonus = (0.5 if perfect_landed else 0) + self.heuristical_reward()
+            self.next_round()
+            return True, score, x_list, bonus, pos
+
+    def deep_drop(self):
+        self.turns_without_drop = 0
+        # self.previous_move = 0
+        x_position = self.dropping_mino.current_pos[0]
+        y_position = self.dropping_mino.current_pos[1] + 1
+        moves = 0
+        while self.check_collision(self.dropping_mino.current_rot, [x_position, y_position]) == False:
+            moves += 1
+            y_position += 1
+        self.dropping_mino.current_pos[1] = y_position - 1
+        if moves == 0:
+            score, x_list, perfect_landed, pos = self.land()
             self.next_round()
             return True, score, x_list, perfect_landed, pos
+        else:
+            self.last_move_is_rotate = False
+            return False, 0, [], False, [0, 0]
 
     def hard_drop(self):
+        self.turns_without_drop = 0
+        # self.previous_move = 0
         x_position = self.dropping_mino.current_pos[0]
         y_position = self.dropping_mino.current_pos[1] + 1
         while self.check_collision(self.dropping_mino.current_rot, [x_position, y_position]) == False:
@@ -240,8 +279,9 @@ class controller:
         self.dropping_mino.current_pos[1] = y_position - 1
 
         score, x_list, perfect_landed, pos = self.land()
+        bonus = (0.5 if perfect_landed else 0) + self.heuristical_reward()
         self.next_round()
-        return True, score, x_list, perfect_landed, pos
+        return True, score, x_list, bonus, pos
 
     # return basis + btb + ren + all_deletion info, column_index
     def land(self):
@@ -275,8 +315,6 @@ class controller:
             if xy[1] < 23:
                 if self.field[xy[1]][xy[0]] == 0:
                     perfect_landed = False
-
-                
 
         lines_deleted = len(y_list)
         if lines_deleted == 0:
@@ -312,15 +350,37 @@ class controller:
                 self.btb_ready = False
 
             self.delete_lines(y_list)
-            all_deleted = 0
-            # the bottom line filled with 0 means all deletion occured
+            full_clear = 0
+            # the bottom line filled with 0 means board is cleared
             if self.field[22] == [0 for i in range(10)]:
-                all_deleted = 4
+                full_clear = 4
             
-            return basis + btb + self.ren + all_deleted, x_list, perfect_landed, pos
+            return basis + btb + self.ren + full_clear, x_list, perfect_landed, pos
 
+    def heuristical_reward(self):
+        # Adds additional reward based on heuristical measures to allow agent to better place the pieces
+        bump = 0
+        holes = 0
+        height = 23
+        for col in range(10):
+            found_top = False
+            for row in range(23):
+                if found_top:
+                    if self.field[row][col] == 0:
+                        holes += 1
+                else:
+                    if self.field[row][col] != 0:
+                        found_top = True
+                        if col != 0:
+                            bump += abs(height - row)
+                        height = row
+            if not found_top:
+                if col != 0:
+                    bump += abs(23 - height)
+                height = 23
 
-                
+        return (0.1 if holes < 8 else -0.1) + (0.02*(8-bump) if bump < 8 else -0.1)
+
     # 0 --> no t spin 1--> t spin mini 2 --> t spin
     def t_spin_checker(self) -> int:
         if self.dropping_mino.mino_id != t_index:
@@ -407,8 +467,11 @@ class controller:
     
     # exchange or hold
     def hold(self):
+        reward = 0.01*(1 - self.turns_without_drop)
+        self.turns_without_drop += 1
+        # self.previous_move = 0
         if self.hold_used:
-            pass
+            return min(reward, 0)
         else:
             if self.hold_mino_id == None:
                 self.hold_mino_id = self.dropping_mino.mino_id
@@ -420,25 +483,28 @@ class controller:
                 self.hold_mino_id = self.dropping_mino.mino_id
                 self.dropping_mino = controller.minos[temp_next_mino_id]
             self.hold_used = True
+        return reward
     
     def get_state(self):
         field_copy = [[1.0 if block > 0 else 0.5 for block in line] for line in self.field]
         space = self.dropping_mino.current_space()
         for x, y in space:
             field_copy[y][x] = 2
+        
+        next_minos = [[0 for j in range(10)] for i in range(6)]
         # insert next minos info
         for i in range(5):
-            l = [0 for j in range(10)]
-            l[self.next_minos[i] - 1] = 1
-            field_copy.insert(0, l)
+            next_minos[i+1][self.next_minos[i] - 1] = 1
         
         # insert hold mino info
-        l = [0 for i in range(10)]
+        next_minos[0][-1] = self.turns_without_drop
+        next_minos[0][-2] = 1 if self.hold_used else 0
         if self.hold_mino_id != None:
-            l[self.hold_mino_id - 1] = 1
-        field_copy.insert(0, l)
+            next_minos[0][self.hold_mino_id-1] = 1
+        # if self.previous_move != 0:
+        #     next_minos[self.previous_move][-1] = 1
 
-        return field_copy
+        return next_minos + field_copy
     
     # return the height of the field (1 ~ 23)
     def highest(self):

@@ -1,2 +1,4 @@
 /tetris/*
 /.vscode/*
+/**/*.data
+/**/*.mp4
