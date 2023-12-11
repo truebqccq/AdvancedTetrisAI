@@ -1,3 +1,4 @@
+***All files mentioned are located in the tetris_gym_env subdirectory***
 ### Notebook Files
 There are three training notebook files included, each trains the model slightly differently -- two are linear with different grid orientation, the other uses convolution neural network.  
 To run these files, run each cell up to and including the one that loads previous training data. The cells after will perform the training and export the results. To view the result directly, skip past those cells and run the last two on the notebook, which will create a sample video that showcases the result.
