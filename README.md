@@ -1,4 +1,4 @@
-***All files mentioned are located in the tetris_gym_env subdirectory***
+***All files mentioned are located in the tetris_gym_env subdirectory***  
 Due to the layout of the environment, we are not sure if everything will still work properly if we changed the structure of the directory.
 All required files can be found in ./tetris_gym_env  
 
