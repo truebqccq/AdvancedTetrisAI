@@ -177,7 +177,7 @@ class controller:
     
     # move dropping mino an offset specified by x, right(x>0) or left(x<0)
     def move_x(self, x): 
-        reward = 0.01*(1 - self.turns_without_drop)
+        reward = 0.01*(2 - self.turns_without_drop)
         # Punish doing moves that undoes the previous move
         # if self.previous_move == (3-x)//2:
             # reward -= 0.05
@@ -193,7 +193,7 @@ class controller:
     # rotate dropping mino after calculating its final position 
     # calculation is done using Super Rotation System used in tetris world rule
     def rotate(self, angle_offset):
-        reward = 0.01*(1 - self.turns_without_drop)
+        reward = 0.01*(2 - self.turns_without_drop)
         # Punish doing moves that undoes the previous move
         # if self.previous_move == 2 + (3-angle_offset)//2:
         #     reward -= 0.05

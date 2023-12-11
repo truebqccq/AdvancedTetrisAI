@@ -1,1 +1,0 @@
-sudo /bin/python3 /home/ai/Desktop/tetris2/tetris_gym_env/gym-tetris/setup.py install

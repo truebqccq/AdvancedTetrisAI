@@ -1,4 +1,3 @@
 /tetris/*
 /.vscode/*
-/**/*.data
-/**/*.mp4
+/tetris_gym_env/IGNORE/**

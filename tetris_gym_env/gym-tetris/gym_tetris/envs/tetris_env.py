@@ -13,7 +13,7 @@ class TetrisEnv(gym.Env):
     }
     
     def __init__(self, render_mode = "human"):
-        print('Build Tetris v2.0')
+        print('Built Tetris v3.0')
         self.action_space = spaces.Discrete(7)
         self.observation_space = spaces.Box(low=0, high=2, shape=(1, 29, 10), dtype=np.float32)
         self.controller = controller()
