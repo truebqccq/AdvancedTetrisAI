@@ -17,6 +17,3 @@ There are seven total replay videos included. The full_send video showcases the 
 
 ### Source Files
 The source files for the environment are located in the gym-tetris folder. The src folder contains the original author's model and training, as well as some of our miscellaneous files containing code we used throughout the project.
-
-### Additional Notes:
-Certain files have been excluded in the submission zip due to the size requirements. These include the raw scores from the training (used to create graphs) and the convolutional network model (needed to create the convolutional model). They can be obtained from our github page.
